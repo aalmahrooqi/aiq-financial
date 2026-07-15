@@ -244,6 +244,7 @@ dev = [
     { name = "google-scholar-paper-search", editable = "../sources/google_scholar_paper_search" },
     { name = "knowledge-layer", extras = ["all"], editable = "../sources/knowledge_layer" },
     { name = "mypy", specifier = ">=1.5.0" },
+    { name = "nimble-web-search", editable = "../sources/nimble_web_search" },
     { name = "polymarket-prediction-market", editable = "../sources/polymarket_prediction_market" },
     { name = "pre-commit", specifier = ">=3.5.0" },
     { name = "pytest", specifier = ">=7.4.0" },
@@ -253,6 +254,7 @@ dev = [
     { name = "ruff", specifier = "~=0.15.1" },
     { name = "tavily-web-search", editable = "../sources/tavily_web_search" },
     { name = "yapf", specifier = ">=0.40.0" },
+    { name = "you-com", editable = "../sources/you_com" },
 ]
 
 [[package]]

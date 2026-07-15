@@ -61,6 +61,7 @@ prompted to follow the recorded order.
 
 - **Tavily Web Search** — General web search (requires `TAVILY_API_KEY`)
 - **Exa Web Search** — General web search via Exa (requires `EXA_API_KEY`)
+- **Nimble Web Search** — General web search via Nimble (requires `NIMBLE_API_KEY`)
 - **DuckDuckGo News Search** — Recent news search (no API key)
 - **Polymarket Prediction Markets** — Events and market-implied probabilities (no API key)
 - **Google Scholar Paper Search** — Academic search through Serper, SerpAPI, or SearchAPI (requires the selected provider's key)
