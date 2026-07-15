@@ -10,7 +10,7 @@
   const currentScript = document.currentScript;
   if (currentScript && typeof DOCUMENTATION_OPTIONS !== "undefined") {
     DOCUMENTATION_OPTIONS.theme_switcher_json_url = new URL(
-      "../../versions-local.json",
+      "../../versions1.json",
       currentScript.src,
     ).href;
   }
