@@ -207,6 +207,7 @@ dev = [
     "google-scholar-paper-search",
     "tavily-web-search",
     "exa-web-search",
+    "you-com",
     "duckduckgo-news-search",
     "polymarket-prediction-market",
     "knowledge-layer[all]",
@@ -251,6 +252,7 @@ aiq-agent = { workspace = true }
 google-scholar-paper-search = { workspace = true }
 tavily-web-search = { workspace = true }
 exa-web-search = { workspace = true }
+you-com = { workspace = true }
 duckduckgo-news-search = { workspace = true }
 polymarket-prediction-market = { workspace = true }
 knowledge-layer = { workspace = true }
