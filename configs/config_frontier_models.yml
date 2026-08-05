@@ -99,10 +99,10 @@ llms:
   # LLM for document summaries (required when generate_summary: true)
   summary_llm:
     _type: nim
-    model_name: nvidia/nemotron-mini-4b-instruct
+    model_name: google/gemma-4-31b-it
     base_url: "https://integrate.api.nvidia.com/v1"
     api_key: ${NVIDIA_API_KEY}
-    temperature: 0.3
+    temperature: 0.1
     max_tokens: 100
 
 functions:
