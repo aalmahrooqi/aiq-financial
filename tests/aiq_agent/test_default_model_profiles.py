@@ -2,11 +2,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 import yaml
 
+from aiq_agent.agents.shallow_researcher.agent import ShallowResearcherAgent
+from aiq_agent.common import LLMProvider
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
+SHARED_SHALLOW_PROMPT = REPO_ROOT / "src/aiq_agent/agents/shallow_researcher/prompts/researcher.j2"
 
 ULTRA_MODEL = "nvidia/nemotron-3-ultra-550b-a55b"
 LIGHTNING_MODEL = "nvidia/nemotron-3.5-lightning-30b-a3b"
@@ -19,6 +24,10 @@ CONFIG_GLOBS = (
 )
 CONFIG_PATHS = tuple(sorted(path for pattern in CONFIG_GLOBS for path in REPO_ROOT.glob(pattern)))
 FRESHQA_CONFIG_PATHS = tuple(sorted(REPO_ROOT.glob("frontends/benchmarks/freshqa/configs/*.yml")))
+SHALLOW_PROFILE_PATHS = (
+    REPO_ROOT / "configs/config_web_default_guardrails.yml",
+    REPO_ROOT / "configs/config_frontier_models.yml",
+)
 
 DEPRECATED_REFERENCES = (
     "/".join(("nvidia", "nemotron-3-super-120b-a12b")),
@@ -141,6 +150,18 @@ def test_freshqa_research_tools_are_registered_data_sources(config_path: Path):
             "deep_research_agent",
         }:
             assert set(function.get("tools", [])) <= source_tools
+
+
+@pytest.mark.parametrize("config_path", SHALLOW_PROFILE_PATHS, ids=lambda path: path.name)
+def test_shallow_profiles_use_the_shared_citation_prompt(config_path: Path):
+    """Default Lightning and frontier Luna must share the hardened prompt and runtime path."""
+    config = _load_config(config_path)
+    shallow = config["functions"]["shallow_research_agent"]
+    agent = ShallowResearcherAgent(llm_provider=MagicMock(spec=LLMProvider), tools=[])
+
+    assert shallow["_type"] == "shallow_research_agent"
+    assert "system_prompt" not in shallow
+    assert agent.system_prompt == SHARED_SHALLOW_PROMPT.read_text(encoding="utf-8")
 
 
 def test_deprecated_model_and_endpoint_references_are_absent():
