@@ -536,6 +536,8 @@ def _format_results(retrieval_result, query: str) -> str:
         else:
             citation = chunk.file_name
 
+        citation = chunk.display_citation or citation
+
         # Header with source info
         lines.append(f"--- Result {i} ---")
         lines.append(f"Source: {chunk.file_name}")
@@ -551,7 +553,8 @@ def _format_results(retrieval_result, query: str) -> str:
 
         # Content (truncate if very long)
         content = chunk.content
-        if len(content) > 1500:
+        is_excel_table = chunk.file_name.lower().endswith(".xlsx") and chunk.metadata.get("sheet_name")
+        if not is_excel_table and len(content) > 1500:
             content = content[:1500] + "... [truncated]"
         lines.append(content)
         lines.append("")
@@ -656,14 +659,13 @@ async def knowledge_retrieval(config: KnowledgeRetrievalConfig, _builder: Builde
         )
     finally:
         if config.backend in {"nemo_retriever", "nemo_retriever_local"}:
-            from aiq_agent.knowledge.factory import clear_active_ingestor
-            from aiq_agent.knowledge.factory import get_active_ingestor
             from aiq_agent.knowledge.factory import release_ingestor
 
-            if get_active_ingestor() is ingestor:
-                clear_active_ingestor()
-            release_ingestor(config.backend, ingestor)
-            for component in (retriever, ingestor):
+            released_ingestor = release_ingestor(config.backend, ingestor)
+            components = [retriever]
+            if released_ingestor:
+                components.append(ingestor)
+            for component in components:
                 close = getattr(component, "close", None)
                 if callable(close):
                     try:

@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import os
 import queue
@@ -843,6 +844,8 @@ class LocalRuntime:
             self._active_writes.discard((work.collection_name, work.staged.document_id))
 
     def _extract_and_embed(self, staged: _StagedFile) -> Any:
+        if staged.path.suffix.lower() == ".xlsx":
+            return self._embed_excel(staged)
         inference_api_key = _secret_value(self._inference_api_key)
         plan = self.bindings.resolve_ingest_plan(
             self.bindings.IngestPlanRequest(
@@ -876,6 +879,78 @@ class LocalRuntime:
             .embed(plan.embed_params)
             .ingest()
         )
+
+    def _embed_excel(self, staged: _StagedFile) -> Any:
+        """Embed native spreadsheet chunks with the same NeMo client used for queries."""
+        from ._excel import read_excel_chunks
+
+        chunks = read_excel_chunks(staged.path)
+        records = []
+        batch_size = 8
+        for start in range(0, len(chunks), batch_size):
+            batch = chunks[start : start + batch_size]
+            try:
+                vectors = self.bindings.infer_microservice(
+                    [chunk.text for chunk in batch],
+                    model_name=self._embedding_model,
+                    embedding_endpoint=self._embedding_endpoint,
+                    nvidia_api_key=_secret_value(self._inference_api_key),
+                    input_type="passage",
+                    truncate="NONE",
+                    model_provider_prefix=self.settings.embed_model_provider_prefix,
+                    grpc=False,
+                )
+            except Exception as error:
+                # NimClient wraps requests.HTTPError; its response remains in the exception chain.
+                cause = error
+                seen = set()
+                while cause is not None and id(cause) not in seen:
+                    seen.add(id(cause))
+                    response = getattr(cause, "response", None)
+                    if response is not None and getattr(response, "status_code", None) == 400:
+                        try:
+                            sent = json.loads(response.request.body).get("input", [])
+                            sent = [sent] if isinstance(sent, str) else sent
+                            sent = [text for text in sent if isinstance(text, str)]
+                        except (AttributeError, TypeError, ValueError):
+                            sent = []
+                        body = response.text
+                        for text in [*(chunk.text for chunk in batch), *sent]:
+                            body = body.replace(text, "[redacted input]") if text else body
+                            body = body.replace(json.dumps(text)[1:-1], "[redacted input]") if text else body
+                        body = self.public_error(RuntimeError(body)).replace("\r", "\\r").replace("\n", "\\n")
+                        logger.error(
+                            "Excel embedding HTTP 400: model=%s batch_start=%d batch_size=%d "
+                            "request_input_chars=%s source_ranges=%s provider_response=%s",
+                            self._embedding_model,
+                            start + 1,
+                            len(batch),
+                            [len(text) for text in sent],
+                            [
+                                f"{chunk.metadata.get('sheet_name')}!{chunk.metadata.get('cell_range')}"
+                                for chunk in batch
+                                if chunk.text in sent
+                            ],
+                            body,
+                        )
+                        break
+                    cause = cause.__cause__ or cause.__context__
+                raise
+            if len(vectors) != len(batch):
+                raise NemoRetrieverLocalError("NeMo Retriever returned an unexpected number of Excel embeddings")
+            for chunk, vector in zip(batch, vectors, strict=True):
+                records.append(
+                    {
+                        "text": chunk.text,
+                        "_content_type": "table",
+                        "metadata": {
+                            "embedding": vector,
+                            "source_metadata": {"source_id": staged.filename, "source_name": staged.filename},
+                            "content_metadata": chunk.metadata,
+                        },
+                    }
+                )
+        return self.bindings.pandas.DataFrame(records)
 
     def _apply_file_metadata(self, dataframe: Any, staged: _StagedFile) -> Any:
         if not staged.metadata:
